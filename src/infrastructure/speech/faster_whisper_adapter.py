@@ -138,8 +138,12 @@ class FasterWhisperAdapter(Transcriber):
         try:
             audio_array, sample_rate = sf.read(io.BytesIO(audio_bytes), dtype="float32")
         except Exception:
-            audio_array = await self._decode_with_ffmpeg(audio_bytes)
-            sample_rate = 16000
+            try:
+                audio_array = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+                sample_rate = 16000
+            except Exception:
+                audio_array = await self._decode_with_ffmpeg(audio_bytes)
+                sample_rate = 16000
 
         if sample_rate != 16000:
             audio_array = self._resample(audio_array, sample_rate, 16000)
@@ -150,7 +154,7 @@ class FasterWhisperAdapter(Transcriber):
         loop = asyncio.get_running_loop()
 
         def _run_ffmpeg() -> np.ndarray:
-            with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp_in:
+            with tempfile.NamedTemporaryFile(delete=False) as tmp_in:
                 tmp_in.write(audio_bytes)
                 tmp_in_path = tmp_in.name
 
