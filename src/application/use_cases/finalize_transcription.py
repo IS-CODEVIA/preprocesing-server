@@ -69,6 +69,7 @@ class FinalizeTranscriptionUseCase:
             session_id=session_id,
             latency_ms=round(latency_ms, 2),
             text_length=len(text),
+            text=text,
             quality_score=round(quality.overall_score, 2),
             quality_passed=quality.passed,
             event_id=event_id,

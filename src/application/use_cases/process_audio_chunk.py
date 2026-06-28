@@ -85,6 +85,7 @@ class ProcessAudioChunkUseCase:
             session_id=dto.session_id,
             latency_ms=round(latency_ms, 2),
             text_length=len(text),
+            text=text,
         )
 
         return PartialTranscriptionResult(
