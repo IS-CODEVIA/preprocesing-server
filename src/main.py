@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket
 from fastapi.responses import JSONResponse
 
 
@@ -40,7 +40,7 @@ class Application:
         self.app.include_router(health_router)
 
         @self.app.websocket("/ws/transcribe")
-        async def transcribe_websocket(websocket):
+        async def transcribe_websocket(websocket: WebSocket):
             handler = TranscriptionWebSocketHandler(
                 start_session_uc=self.container.create_start_session_use_case(),
                 process_chunk_uc=self.container.create_process_audio_chunk_use_case(),
