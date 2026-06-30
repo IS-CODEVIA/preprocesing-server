@@ -12,6 +12,8 @@ import numpy as np
 import soundfile as sf
 import structlog
 
+
+
 from src.domain.services.transcriber import Transcriber
 from src.infrastructure.config.settings import settings
 
@@ -83,21 +85,14 @@ class FasterWhisperAdapter(Transcriber):
                 audio=audio_array,
                 language=language,
                 task="transcribe",
-                beam_size=5,
-                best_of=5,
+                beam_size=3,
+                best_of=3,
                 temperature=0.0,
                 vad_filter=True,
                 vad_parameters=dict(
                     min_speech_duration_ms=100,
-                    max_speech_duration_s=30,
                     min_silence_duration_ms=30,
-                    threshold=0.5,
-                    speech_pad_ms=400,
                 ),
-                no_speech_threshold=0.4,
-                compression_ratio_threshold=2.4,
-                condition_on_previous_text=True,
-                initial_prompt="",
             ),
         )
 
@@ -125,17 +120,10 @@ class FasterWhisperAdapter(Transcriber):
                 temperature=0.0,
                 vad_filter=True,
                 vad_parameters=dict(
-                    min_speech_duration_ms=100,
-                    max_speech_duration_s=30,
-                    min_silence_duration_ms=50,
-                    threshold=0.5,
-                    speech_pad_ms=400,
+                    min_speech_duration_ms=200,
+                    min_silence_duration_ms=100,
                 ),
                 word_timestamps=True,
-                no_speech_threshold=0.4,
-                compression_ratio_threshold=2.4,
-                condition_on_previous_text=True,
-                initial_prompt="",
             ),
         )
 
@@ -146,19 +134,24 @@ class FasterWhisperAdapter(Transcriber):
         return " ".join(text_parts) if text_parts else ""
 
     async def _decode_audio(self, audio_bytes: bytes) -> np.ndarray:
-        try:
-            audio_array, sample_rate = sf.read(io.BytesIO(audio_bytes), dtype="float32")
-        except Exception:
+        if audio_bytes[:4] == b"RIFF":
             try:
-                audio_array = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
-                sample_rate = 16000
-            except Exception:
-                audio_array = await self._decode_with_ffmpeg(audio_bytes)
-                sample_rate = 16000
+                audio_array, sample_rate = sf.read(io.BytesIO(audio_bytes), dtype="float32")
+                if sample_rate != 16000:
+                    audio_array = self._resample(audio_array, sample_rate, 16000)
+                return audio_array.astype(np.float32)
+            except Exception as exc:
+                await logger.awarning("wav_decode_failed", error=str(exc))
 
-        if sample_rate != 16000:
-            audio_array = self._resample(audio_array, sample_rate, 16000)
-
+        audio_array = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+        await logger.ainfo(
+            "audio_decoded_raw_pcm",
+            total_bytes=len(audio_bytes),
+            num_samples=len(audio_array),
+            min_val=float(audio_array.min()),
+            max_val=float(audio_array.max()),
+            mean_val=float(audio_array.mean()),
+        )
         return audio_array.astype(np.float32)
 
     async def _decode_with_ffmpeg(self, audio_bytes: bytes) -> np.ndarray:
@@ -174,6 +167,9 @@ class FasterWhisperAdapter(Transcriber):
                 subprocess.run(
                     [
                         "ffmpeg",
+                        "-f", "s16le",
+                        "-ar", "16000",
+                        "-ac", "1",
                         "-i", tmp_in_path,
                         "-ar", "16000",
                         "-ac", "1",
