@@ -135,19 +135,16 @@ class FasterWhisperAdapter(Transcriber):
         return " ".join(text_parts) if text_parts else ""
 
     async def _decode_audio(self, audio_bytes: bytes) -> np.ndarray:
-        try:
-            audio_array, sample_rate = sf.read(io.BytesIO(audio_bytes), dtype="float32")
-        except Exception:
+        if audio_bytes[:4] == b"RIFF":
             try:
-                audio_array = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
-                sample_rate = 16000
-            except Exception:
-                audio_array = await self._decode_with_ffmpeg(audio_bytes)
-                sample_rate = 16000
+                audio_array, sample_rate = sf.read(io.BytesIO(audio_bytes), dtype="float32")
+                if sample_rate != 16000:
+                    audio_array = self._resample(audio_array, sample_rate, 16000)
+                return audio_array.astype(np.float32)
+            except Exception as exc:
+                await logger.awarning("wav_decode_failed", error=str(exc))
 
-        if sample_rate != 16000:
-            audio_array = self._resample(audio_array, sample_rate, 16000)
-
+        audio_array = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
         return audio_array.astype(np.float32)
 
     async def _decode_with_ffmpeg(self, audio_bytes: bytes) -> np.ndarray:

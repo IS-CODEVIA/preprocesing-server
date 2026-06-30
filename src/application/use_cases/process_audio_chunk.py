@@ -51,7 +51,6 @@ class ProcessAudioChunkUseCase:
             )
 
         await self._session_repository.append_audio_chunk(dto.session_id, dto.chunk)
-        session.add_chunk(dto.chunk)
 
         await logger.ainfo(
             "audio_chunk_received",
