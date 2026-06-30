@@ -12,9 +12,6 @@ import numpy as np
 import soundfile as sf
 import structlog
 
-
-
-
 from src.domain.services.transcriber import Transcriber
 from src.infrastructure.config.settings import settings
 
@@ -86,14 +83,21 @@ class FasterWhisperAdapter(Transcriber):
                 audio=audio_array,
                 language=language,
                 task="transcribe",
-                beam_size=3,
-                best_of=3,
+                beam_size=5,
+                best_of=5,
                 temperature=0.0,
                 vad_filter=True,
                 vad_parameters=dict(
                     min_speech_duration_ms=100,
+                    max_speech_duration_s=30,
                     min_silence_duration_ms=30,
+                    threshold=0.5,
+                    speech_pad_ms=400,
                 ),
+                no_speech_threshold=0.4,
+                compression_ratio_threshold=2.4,
+                condition_on_previous_text=True,
+                initial_prompt="",
             ),
         )
 
@@ -121,10 +125,17 @@ class FasterWhisperAdapter(Transcriber):
                 temperature=0.0,
                 vad_filter=True,
                 vad_parameters=dict(
-                    min_speech_duration_ms=200,
-                    min_silence_duration_ms=100,
+                    min_speech_duration_ms=100,
+                    max_speech_duration_s=30,
+                    min_silence_duration_ms=50,
+                    threshold=0.5,
+                    speech_pad_ms=400,
                 ),
                 word_timestamps=True,
+                no_speech_threshold=0.4,
+                compression_ratio_threshold=2.4,
+                condition_on_previous_text=True,
+                initial_prompt="",
             ),
         )
 

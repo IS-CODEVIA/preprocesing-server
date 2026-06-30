@@ -6,7 +6,8 @@ import time
 from typing import Any, Optional
 
 import structlog
-from fastapi import WebSocket, WebSocketState
+from fastapi import WebSocket
+from starlette.websockets import WebSocketState
 
 from src.infrastructure.config.settings import settings
 
